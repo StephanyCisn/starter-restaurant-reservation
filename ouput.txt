@@ -1,0 +1,12 @@
+
+> starter-restaurant-reservation@1.0.0 test:1:backend
+> npm run test:1 --prefix ./back-end
+
+
+> starter-restaurant-reservation-back-end@1.0.0 test:1
+> npm run test -- us-01
+
+
+> starter-restaurant-reservation-back-end@1.0.0 test
+> npx cross-env LOG_LEVEL=warn jest --runInBand --detectOpenHandles --forceExit "us-01"
+
