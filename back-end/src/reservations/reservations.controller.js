@@ -4,7 +4,8 @@
  const asyncErrorBoundary = require("../errors/asyncErrorBoundary");
  const service = require("./reservations.service");
  const hasProperties = require("../errors/hasProperties");
- 
+
+ // ddeclare valid properties check
  const validProperties = [
    "first_name",
    "last_name",
@@ -24,6 +25,7 @@
    "Saturday",
  ];
  
+ // A check is made to verify that a reservation exists in the database with the reservation id provided
  async function reservationExists(req, res, next) {
    const reservation = await service.read(req.params.reservation_id);
  
@@ -42,7 +44,8 @@
  
  async function hasValidProperties(req, res, next) {
    const { data = {} } = req.body;
- 
+
+ // A check is made to verify that a reservation is entered with requested data
    if (!data) {
      return next({ status: 400, message: "Requires request data" });
    }
@@ -53,6 +56,7 @@
      if (field === "people" && !Number.isInteger(data.people)) {
        return next({ status: 400, message: `Requires ${field} to be a number` });
      }
+
      if (
        field === "reservation_date" &&
        !dateIsFormatted.test(data.reservation_date)
@@ -94,13 +98,15 @@
    let dayofWeek = days[reservationDate.getDay()];
    let timeOfDay = data.reservation_time;
  
+   // restaurant closed on Tuesday's, check day of week
    if (reservationDate < new Date() && dayofWeek === "tuesday") {
      return next({
        status: 400,
        message:
          "Reservations can only be created for a future date and may not be on tuesdays",
      });
-   }
+}
+// restaurants can only be made for future dates, check date of res
    if (reservationDate < new Date()) {
      return next({
        status: 400,
@@ -110,6 +116,8 @@
    if (dayofWeek === "Tuesday") {
      return next({ status: 400, message: "Restaurant is closed on tuesdays" });
    }
+
+   // check time of reservation is during operating hours
    if (timeOfDay >= "21:30" || timeOfDay <= "10:30") {
      return next({
        status: 400,
@@ -120,6 +128,7 @@
    next();
  }
  
+ //The status of the reservation is checked because reservations with a status of "seated", "finished", or "cancelled" cannot be edited.
  function isBooked(req, res, next) {
    const { data } = req.body;
    if (data.status === "seated" || data.status === "finished") {
@@ -134,7 +143,7 @@
  
  function hasValidStatus(req, res, next) {
    const { data } = req.body;
-   //if current reservation status is already "finished" then it cannot be updated
+   //if current res status is already finished then it cannot be changed
    if (res.locals.reservation.status === "finished") {
      return next({
        status: 400,

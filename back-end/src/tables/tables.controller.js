@@ -102,6 +102,7 @@ function read(req, res) {
   const { table: data } = res.locals;
   res.json({ data });
 }
+// checks res status, displays message if already seated
 async function updateResStatusSeated(req, res, next) {
   if (res.locals.reservation.status === "seated") {
     return next({ status: 400, message: "reservation is already seated" });
@@ -120,8 +121,9 @@ async function update(req, res) {
     reservation_id: req.body.data.reservation_id,
   };
 
+  // updates res status to seated when ID changes
   await service.update(updatedTable);
-  //toDo: update the reservation status to seated when a table is assigned a reservation id
+  
   const data = await service.read(updatedTable.table_id);
   res.json({ data });
 }

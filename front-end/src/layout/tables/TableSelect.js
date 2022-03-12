@@ -31,4 +31,3 @@ function TableSelect() {
 }
 
 export default TableSelect;
-//<button type="button" onClick={() => history.push('/')}></button>
