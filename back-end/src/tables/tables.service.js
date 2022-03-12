@@ -1,48 +1,45 @@
 const knex = require("../db/connection");
+const tableName = "tables";
 
-//Make a knex SQL query to return all tables, ordered by name
+async function create(newTable) {
+  return await knex(tableName)
+    .insert(newTable)
+    .returning("*")
+    .then((createdRecords) => createdRecords[0]);
+}
 function list() {
-  return knex("tables")
-        .groupBy("tables.table_id")
-        .orderBy("tables.table_name")
-        .then();
+  return knex(tableName).select("*").orderBy("table_name", "asc");
 }
 
-//Make a knex SQL query to return a single table
-function read(tableId) {
-  return knex("tables")
-        .select("*")
-        .where({ "table_id": tableId })
-        .first();
+async function update(updatedTable) {
+  return await knex(tableName)
+    .select("*")
+    .where({ table_id: updatedTable.table_id })
+    .update(updatedTable, "*")
+    .then((updatedRecords) => updatedRecords[0]);
 }
 
-//Make a knex SQL query to add new table data
-function post(data) {
-    return knex("tables")
-        .insert(data)
-        .returning("*")
-        .then((createdRecords) => createdRecords[0]);
+function read(table_id) {
+  return knex(tableName).select("*").where({ table_id }).first();
 }
 
-//Make a knex SQL query to seat a reservation at a table
-function update(tableId, reservationId) {
-  return knex("tables")
-        .select("*")
-        .where({ table_id: tableId })
-        .update( "reservation_id", reservationId );
+function getReservation(reservation_id) {
+  return knex("reservations").select("*").where({ reservation_id }).first();
 }
 
-//Make a knex SQL query to return a specific reservation's data
-function readRes(reservationId) {
-  return knex("reservations")
-        .where({ "reservation_id": reservationId })
-        .first();
+async function clearTable(updatedTable) {
+  return await knex(tableName)
+    .select("*")
+    .where({ table_id: updatedTable.table_id })
+    .update(updatedTable, "*")
+    .then((updatedRecords) => updatedRecords[0]);
 }
 
 module.exports = {
+  create,
   list,
-  post,
   update,
   read,
-  readRes
-}
+  getReservation,
+  clearTable,
+};

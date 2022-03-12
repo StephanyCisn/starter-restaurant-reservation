@@ -1,17 +1,20 @@
 const knex = require("../db/connection");
+const tableName = "reservations";
 
-//Make a knex SQL query to find all reservations for a specific date, excluding some statuses
-function list(date) {
-  return knex("reservations")
-        .whereNot({ status: "finished" })
-        .andWhereNot({ status: "cancelled" })
-        .andWhere({ "reservation_date": date })
-        .orderBy("reservation_time", "asc")
-        .then();
+function list() {
+  return knex(tableName).select("*").whereNot({ status: "finished" });
 }
 
-//Make a knex SQL query to find all reservations for the specific phone number
-function listByPhone(mobile_number) {
+function listDate(reservation_date) {
+  return knex(tableName)
+    .select("*")
+    .where({ reservation_date })
+    .whereNot({ status: "finished" })
+    .andWhereNot({ status: "cancelled" })
+    .orderBy("reservation_time", "asc");
+}
+
+function listPhone(mobile_number) {
   return knex("reservations")
     .whereRaw(
       "translate(mobile_number, '() -', '') like ?",
@@ -20,45 +23,30 @@ function listByPhone(mobile_number) {
     .orderBy("reservation_date");
 }
 
-//Make a knex SQL query to return a specific reservation
-function read(reservationId) {
-  return knex("reservations")
-        .where({ "reservation_id": reservationId })
-        .first()
-        .then();
+function read(reservation_id) {
+  return knex(tableName).select("*").where({ reservation_id }).first();
 }
 
-//Make a knex SQL query to add a new reservation
-function post(data) {
-    return knex("reservations")
-        .insert(data)
-        .returning("*")
-        .then((createdRecords) => createdRecords[0]);
+async function create(newReservation) {
+  return await knex(tableName)
+    .insert(newReservation)
+    .returning("*")
+    .then((createdRecords) => createdRecords[0]);
 }
 
-//Make a knex SQL query to update the status of a reservation
-function updateStatus(status, reservationId) {
-  return knex("reservations")
-        .where({ "reservation_id": reservationId })
-        .update( "status", status)
-        .returning("*")
-        .then((records) => records[0]);
-}
-
-//Make a knex SQL query to update a reservation
-function put(reservation) {
-  return knex("reservations")
-        .where({ "reservation_id": reservation.reservation_id })
-        .update(reservation)
-        .returning("*")
-        .then((records) => records[0]);
+async function updateReservation(reservation) {
+  return await knex(tableName)
+    .select("*")
+    .where({ reservation_id: reservation.reservation_id })
+    .update(reservation, "*")
+    .then((updatedRecords) => updatedRecords[0]);
 }
 
 module.exports = {
   list,
-  listByPhone,
+  listDate,
+  listPhone,
   read,
-  post,
-  updateStatus,
-  put,
-}
+  create,
+  updateReservation,
+};

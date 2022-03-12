@@ -1,134 +1,171 @@
+const asyncErrorBoundary = require("../errors/asyncErrorBoundary");
 const service = require("./tables.service");
-const resService = require("../reservations/reservations.service");
+const reservationService = require("../reservations/reservations.service");
+const hasProperties = require("../errors/hasProperties");
 
-//Checks data to confirm it has valid table properties
-function hasValidProperties(req, res, next) {
-    //get data regardless of api style
-    if(req.body.data){ req.body = req.body.data; }
-    const data = req.body;
-
-    //return error if no data
-    if(!data) { 
-        return next({ status: 400, message: `Requires request body, including table_name and capacity.` });
-    }
-
-    //return error if table name is too short
-    if(!data.table_name || data.table_name.length < 2) {
-        return next({ status: 400, message: `Requires table_name to be at least 2 characters.` });
-    }
-    
-    //return error if capacity is not a number or less than 1
-    if(!data.capacity || !Number.isInteger(data.capacity) || data.capacity < 1) {
-        return next({ status: 400, message: `Requires capacity to be at least 1.` });
-    }
-
+function hasData(req, res, next) {
+  if (req.body.data) {
     return next();
+  }
+  return next({ status: 400, message: "body must have data property" });
 }
 
-//Confirm that a reservation id is valid, saves knex SQL read of that reservation to locals if it does
-async function validReservation(req, res, next) {
-    //get data regardless of api style
-    if(req.body.data){ req.body = req.body.data; }
-    const data = req.body;
+async function tableExists(req, res, next) {
+  const table = await service.read(req.params.table_id);
 
-    //return error if there's no reservation id
-    if(!data || !data.reservation_id) {
-        return next({ status: 400, message: `Requires reservation_id.` });
-    }
+  if (table) {
+    res.locals.table = table;
+    return next();
+  }
+  next({
+    status: 404,
+    message: `Table ${req.params.table_id} not found`,
+  });
+}
 
-    //get reservation
-    const reservation = await service.readRes(data.reservation_id);
+async function resExists(req, res, next) {
+  const reservation = await service.getReservation(
+    req.body.data.reservation_id
+  );
 
-    //return error if reservation doesn't exist
-    if(!reservation) {
-        return next({ status: 404, message: `Reservation ${data.reservation_id} not found.` });
-    }
-
-    //confirm reservation isn't seated
-    if(reservation.status !== "booked") {
-        return next({ status: 400, message: `Reservation ${data.reservation_id} has already been seated.` })
-    }    
-    
+  if (reservation) {
     res.locals.reservation = reservation;
     return next();
+  }
+  next({
+    status: 404,
+    message: `Table ${req.body.data.reservation_id} not found`,
+  });
 }
 
-//Returns an error if the table is full or too small for the reservation
-async function validTable(req, res, next) {
-    //get variables
-    const reservation = res.locals.reservation;
-    const tableId = req.params.table_id;
-    const table = await service.read(tableId);
-    
-    //return error if table capacity is smaller than reservation size
-    if(table.capacity < reservation.people){
-        return next({ status: 400, message: `Table has insufficient capacity.` })
-    }
+const validProperties = ["table_name", "capacity"];
 
-    //return error if table is occupied
-    if(table.reservation_id){
-        return next({ status: 400, message: `Table is already occupied.` })
+function hasValidProperties(req, res, next) {
+  const { data = {} } = req.body;
+  if (!data) {
+    return next({ status: 400, message: "Requires request data" });
+  }
+  validProperties.forEach((field) => {
+    if (!data[field]) {
+      return next({ status: 400, message: `Requires ${field}` });
     }
+    if (field === "table_name" && data.table_name.length <= 1) {
+      return next({
+        status: 400,
+        message: `Requires ${field} to have a length greater than 1`,
+      });
+    }
+    if (
+      (field === "capacity" && data.capacity <= 0) ||
+      (field === "capacity" && !Number.isInteger(data.capacity))
+    ) {
+      return next({
+        status: 400,
+        message: `Requires ${field} to be a number and it must be greater than 0`,
+      });
+    }
+  });
+  next();
+}
 
+const hasResId = hasProperties("reservation_id");
+
+function validTable(req, res, next) {
+  const { table: data } = res.locals;
+  const { reservation: resData } = res.locals;
+  if (data.capacity < resData.people) {
+    return next({ status: 400, message: "Insufficient capacity" });
+  }
+  if (data.reservation_id !== null) {
+    return next({ status: 400, message: "Table is currently occupied" });
+  }
+
+  next();
+}
+
+function notOccupied(req, res, next) {
+  const table = res.locals.table;
+
+  if (table.reservation_id) {
     return next();
+  }
+  next({ status: 400, message: "Table is not occupied" });
 }
 
-//Confirms a table exists and saves it to locals, or returns an error if no table
-async function seatingOccupied(req, res, next) {
-    //get table
-    const tableId = req.params.table_id
-    const table = await service.read(tableId);
-
-    //return error if seat doesn't exist
-    if(!table) {
-        return next({ status: 404, message: `Table ${tableId} does not exist.` })
-    }
-
-    //confirm table is occupied
-    if(table.reservation_id){
-        res.locals.table = table;
-        return next();
-    }
-
-    return next({ status: 400, message: `Table is not occupied.` })
+async function create(req, res) {
+  const { data } = req.body;
+  const newTable = await service.create(data);
+  res.status(201).json({ data: newTable });
 }
 
-//Makes Knex SQL query to list every table and returns it
+function read(req, res) {
+  const { table: data } = res.locals;
+  res.json({ data });
+}
+async function updateResStatusSeated(req, res, next) {
+  if (res.locals.reservation.status === "seated") {
+    return next({ status: 400, message: "reservation is already seated" });
+  }
+  const updatedReservation = {
+    ...res.locals.reservation,
+    status: "seated",
+  };
+  await reservationService.updateReservation(updatedReservation);
+  next();
+}
+
+async function update(req, res) {
+  const updatedTable = {
+    ...res.locals.table,
+    reservation_id: req.body.data.reservation_id,
+  };
+
+  await service.update(updatedTable);
+  //toDo: update the reservation status to seated when a table is assigned a reservation id
+  const data = await service.read(updatedTable.table_id);
+  res.json({ data });
+}
+
 async function list(req, res) {
-    const { date } = req.query;
-    const data = await service.list(date);
-    res.status(200).json({ data });
+  const data = await service.list();
+  res.json({ data });
 }
 
-//Makes a Knex SQL query to add a new table
-async function post(req, res) {
-    const data = await service.post(req.body);
-    res.status(201).json({ data: data });
-}
+async function clearTable(req, res) {
+  const table = await service.read(req.params.table_id);
+  const reservation = await service.getReservation(table.reservation_id);
 
-//Pull data from locals to change the status of a table and reservation to seated
-async function seat(req, res) {
-    const reservationId = res.locals.reservation.reservation_id;
-    const tableId = req.params.table_id;
-    
-    const data = await service.update(tableId, reservationId);
-    await resService.updateStatus("seated", reservationId);
-    res.status(200).json({ data: data });
-}
+  const updatedTable = {
+    ...res.locals.table,
+    reservation_id: null,
+  };
 
-//Pull data from locals to update status of table and reservation after meal
-async function unseat(req, res) {
-    const table = res.locals.table;
-    const reservationId = null;
+  const updatedReservation = {
+    ...reservation,
+    status: "finished",
+  };
+  await reservationService.updateReservation(updatedReservation);
+  const data = await service.update(updatedTable);
 
-    await resService.updateStatus("finished", table.reservation_id);   
-    const data = await service.update(table.table_id, reservationId);
-    res.status(200).json({ data: data });
+  res.json({ data });
 }
 
 module.exports = {
-    list,
-    seat: [validReservation, validTable, seat],
-    post: [hasValidProperties, post],
-    unseat: [seatingOccupied, unseat],
-  }
+  list: [asyncErrorBoundary(list)],
+  read: [asyncErrorBoundary(tableExists), read],
+  create: [hasValidProperties, asyncErrorBoundary(create)],
+  update: [
+    hasData,
+    hasResId,
+    asyncErrorBoundary(tableExists),
+    asyncErrorBoundary(resExists),
+    validTable,
+    updateResStatusSeated,
+    asyncErrorBoundary(update),
+  ],
+  delete: [
+    asyncErrorBoundary(tableExists),
+    notOccupied,
+    asyncErrorBoundary(clearTable),
+  ],
+};
