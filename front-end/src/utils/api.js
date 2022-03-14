@@ -6,8 +6,11 @@
  import formatReservationTime from "./format-reservation-date";
  
  const API_BASE_URL =
-   process.env.REACT_APP_API_BASE_URL || "https://cors-anywhere.herokuapp.com/https://restaurant-app-final-client.herokuapp.com";
+   process.env.REACT_APP_API_BASE_URL || "https://restaurant-app-final-client.herokuapp.com";
+
+app.use(cors());
  
+
  /**
   * Defines the default headers for these functions to work with `json-server`
   */
