@@ -11,6 +11,7 @@ import ErrorAlert from "../layout/ErrorAlert";
 import ReservationDisplay from "../layout/reservations/ReservationDisplay";
 import TableDisplay from "../layout/tables/TableDisplay";
 import { Link, useRouteMatch } from "react-router-dom";
+
 //test
 /**
  * Defines the dashboard page.
