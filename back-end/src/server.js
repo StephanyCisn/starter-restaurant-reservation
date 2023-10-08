@@ -1,4 +1,4 @@
-const { PORT = 5000 } = process.env;
+const { PORT = 5000 } = process.env.SERVER_PORT || 8000;
 
 const app = require("./app");
 const knex = require("./db/connection");
@@ -14,15 +14,15 @@ knex.migrate
     knex.destroy();
   });
 
-  const cors=require("cors");
-  const corsOptions ={
-     origin:'*', 
-     credentials:true,            //access-control-allow-credentials:true
-     optionSuccessStatus:200,
-  }
-  
-  app.use(cors(corsOptions)) // Use this after the variable declaration
 
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    next();
+  });
 
 function listener() {
   console.log(`Listening on Port ${PORT}!`);
