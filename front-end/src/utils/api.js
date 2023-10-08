@@ -5,7 +5,7 @@
  import formatReservationDate from "./format-reservation-date";
  import formatReservationTime from "./format-reservation-date";
  
- const API_BASE_URL = "https://finalcap-backend.herokuapp.com"
+ const API_BASE_URL = "https://restaurant-reservation-fmcc.onrender.com"
 
 
 
